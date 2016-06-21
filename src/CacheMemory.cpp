@@ -6,21 +6,20 @@
 
 CacheMemory::CacheMemory(){
 	block_size = 0;
-        assoc = 0;
+        //assoc = 0;
         mem_size = 0;
 
         tag_size = 0;
         index_size = 0;
         offset_size = 0;
         block_num = 0;
-        set_num = 0;
 }
 
-CacheMemory::CacheMemory(const dir_t &v_assoc, const dir_t &v_mem_size, const dir_t &v_block_size){
+CacheMemory::CacheMemory(const dir_t &v_mem_size, const dir_t &v_block_size){
 	//df
-	set_assoc(v_assoc);
-	set_mem_size(v_mem_size);
+	//set_assoc(v_assoc);
 	set_block_size(v_block_size);
+	set_mem_size(v_mem_size);
 	initialize();
 }
 
@@ -30,20 +29,19 @@ CacheMemory::~CacheMemory(){
 void CacheMemory::initialize(){
 	// Cantidad de bloques y sets
 	block_num = mem_size/block_size;
-	set_num = block_num/assoc;
 
 	// Se determinan los bits del offset
 	offset_size = (int) log2(block_size);
-	index_size = (int) log2(set_num);
+	index_size = (int) log2(block_num);
 	tag_size = DIR_SIZE - (offset_size + index_size);
 
-	set_vec.resize(set_num, CacheSet(assoc));
+	set_vec.resize(block_num, Block());
 
 	my_mask = 0;
 	for(int im = 0; im < index_size; im++){
-    my_mask <<= 1;
-    my_mask |= 1;
-  }
+		my_mask <<= 1;
+		my_mask |= 1;
+	}
 }
 
 void CacheMemory::set_block_size(const dir_t &val){
@@ -56,20 +54,11 @@ void CacheMemory::set_block_size(const dir_t &val){
 }
 
 void CacheMemory::set_mem_size(const dir_t &val){
-	if (check_pow2(val))
+	if (check_pow2(val) && val >= block_size)
 		mem_size = val;
 	else{
 		std::cerr << "Error, mem_size not valid" << std::endl;
-		mem_size = 1;
-	}
-}
-
-void CacheMemory::set_assoc(const dir_t &val){
-	if (check_pow2(val))
-		assoc = val;
-	else{
-		std::cerr << "Error, assoc not valid" << std::endl;
-		assoc = 1;
+		mem_size = block_size;
 	}
 }
 
@@ -82,16 +71,98 @@ const bool CacheMemory::check_pow2(const dir_t &val){
 const void CacheMemory::print(){
 	std::cout << "Memoria cache de "
 		  << mem_size << " B, "
-		  << assoc << "-way associative, con bloques de "
+		  << "mappeo directo, con bloques de "
 		  << block_size << " bytes.\n\n\t"
 		  << tag_size << " bits de tag, " << index_size << " bits de index." << std::endl;
-		}
+}
 
-bool CacheMemory::fetch(const dir_t &addr){
-  tag_and_index = addr >> offset_size;
+void CacheMemory::decode_dir(const dir_t &addr, dir_t &tag, dir_t &index){
+	dir_t tag_and_index = addr >> offset_size;
 	index = tag_and_index & my_mask;
 	tag = tag_and_index >> index_size;
-  bool hit;
-  hit = set_vec[index].fetch(tag);
-  return hit;
+	return;
+}
+
+unsigned long CacheMemory::encode_dir(const dir_t &tag, const dir_t &index){
+	dir_t addr = 0;
+	addr = addr | tag;
+	addr = addr << index_size;
+	addr = addr | index;
+	addr = addr << offset_size;
+	return addr;
+}
+
+bool CacheMemory::read(const dir_t &addr){
+	Block *line;
+	dir_t tag, index;
+	decode_dir(addr, tag, index);
+	line = &set_vec[index];
+	
+	// Read Miss
+	if(line->m_state == INVALID){
+		line->m_tag = tag;
+		line->m_state = SHARED;
+		return false;
+	}
+	else{
+		//Read Miss con substitucion
+		if(line->m_tag != tag){
+			// Write-back para datos modificados
+			if(line->m_state == MODIFIED || line->m_state == EXCLUSIVE){
+				dir_t original = encode_dir(line->m_tag, index);
+				write_back(original);
+			}
+			line->m_tag = tag;
+			line->m_state = SHARED;
+			return false;
+		}
+		//Read Hit
+		else{
+			return true;
+		}
+	}
+}
+
+bool CacheMemory::write(const dir_t &addr){
+	Block *line;
+	dir_t tag, index;
+	decode_dir(addr, tag, index);
+	line = &set_vec[index];
+
+	// Si hay un miss
+	if(line->m_tag != tag){
+		switch(line->m_state){
+		case INVALID:
+			break;
+		case SHARED:
+			break;
+		case MODIFIED:
+			break;
+		case EXCLUSIVE:
+			break;
+		default:
+			std::cerr << "Estado inesperado en bloque " << std::hex << index << "," << tag << std::dec << std::endl;
+		}
+		return false;
+	}
+	else{	// Si hay un hit
+		switch(line->m_state){
+		case INVALID:
+			break;
+		case SHARED:
+			break;
+		case MODIFIED:
+			break;
+		case EXCLUSIVE:
+			break;
+		default:
+			std::cerr << "Estado inesperado en bloque " << std::hex << index << "," << tag << std::dec << std::endl;
+		}
+		return true;
+	}
+
+}
+
+void CacheMemory::write_back(const dir_t &addr){
+	return;
 }
