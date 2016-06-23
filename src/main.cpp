@@ -4,7 +4,10 @@
 #include <fstream>
 #include <sstream>
 #include "CacheMemory.h"
+#include "MemoryBus.h"
 
+// Lineas totales en aligned.trace
+#define LINEAS 49642127
 
 using namespace std;
 
@@ -16,57 +19,101 @@ int main(int argc, char* argv[]){
 	welcome();
 
 	// Revision de argumentos, si hay errores el programa termina y retorna 1
-	long long parametros[2];
-	if(!checkArg(argc, argv, parametros))
-		return 1;
+	//long long parametros[2];
+	//if(!checkArg(argc, argv, parametros))
+	//	return 1;
 
-	CacheMemory memoria(parametros[0], parametros[1]);
-	memoria.print();
+	CacheMemory CPU0(8*1024, 16);
+	CacheMemory CPU1(8*1024, 16);
+	CacheMemory L2(64*1024, 16);
+	MemoryBus conexion;
 
-	ifstream datos("trace.test");
+	CPU0.setBus(&conexion);
+	CPU1.setBus(&conexion);
+	conexion.add_lower(&L2);
+
+	cout << "CPU0 L1 $:" << endl;
+	CPU0.print();
+	cout << "\nCPU1 L1 $:" << endl;
+	CPU1.print();
+	cout << "\nL2 $:" << endl;
+	L2.print();
+	cout << endl;
+
+	ifstream datos("aligned.trace");
 	string linea;
+	char tipo;
 	string dir_str;
 	unsigned long dir_dec;
 	bool hit_miss;
 	long long cont_total = 0;
-	long long cont_hits = 0;
-	long long cont_misses = 0;
-	double miss_rate;
-	int i = 0;
-	while (getline(datos,linea)) {
+	long long cont_hits0 = 0;
+	long long cont_misses0 = 0;
+	long long cont_hits1 = 0;
+	long long cont_misses1 = 0;
+	long long i = 0;
+	bool impar = true;
 
-		cout << linea << endl;
+
+	unsigned long ultimas[20];
+	while (getline(datos,linea).good() && linea.length()) {
+		tipo = linea.at(linea.length()-1);
+		
+		//cout << i << ": " << linea;
+
 		linea.erase(linea.begin()+8,linea.end());
 		//Convierte la dirección a decimal
 		std::istringstream(linea) >> std::hex >> dir_dec;
-
-		/*if(!i){
-			unsigned long tag, index;
-			memoria.decode_dir(dir_dec, tag, index);
-			cout << endl << "Tag: " << std::hex << tag <<
-				"\tindex: " << index << endl;
-			cout << "Dir: " << memoria.encode_dir(tag, index) << std::dec << endl;
-		}*/
-
-		hit_miss = memoria.read(dir_dec);
-		if (hit_miss){
-			cont_hits = cont_hits + 1;
+		if (LINEAS - i < 20) {
+			ultimas[LINEAS-i] = dir_dec;
 		}
-		cont_total = cont_total + 1;
+
+		if (impar) {
+			hit_miss = tipo == 'L' ? CPU0.read(dir_dec) : CPU0.write(dir_dec);
+			cont_hits0 += hit_miss;
+			cont_misses0 += !hit_miss;
+		}
+		else {
+			hit_miss = tipo == 'L' ? CPU1.read(dir_dec) : CPU1.write(dir_dec);
+			cont_hits1 += hit_miss;
+			cont_misses1 += !hit_miss;
+		}
+
+		impar = !impar;
+		cont_total++;
 		//memoria.print();
 		i++;
 	}
 
-	cont_misses = cont_total - cont_hits;
-	miss_rate = ((double)cont_misses / (double)cont_total)*100.0;
+	double miss_rate0, miss_rate1;
 
-	cout << "Hits: " << cont_hits << endl;
-	cout << "Misses: "<< cont_misses << endl;
-	cout << "Total: " << cont_total << endl;
+	miss_rate0 = ((double)cont_misses0 / (double) (cont_misses0 + cont_hits0) )*100;
+	miss_rate1 = ((double)cont_misses1 / (double) (cont_misses1 + cont_hits1) )*100;
 
-	cout << "Miss Rate (porcentaje) :" << miss_rate << endl;
+	cout << "CPU0:" << endl;
+	cout << "Hits: " << cont_hits0 << endl;
+	cout << "Misses: "<< cont_misses0 << endl;
+	cout << "Miss Rate (porcentaje) :" << miss_rate0 << endl;
 
-	cout << "fin del programa" << endl;
+	cout << "CPU1:" << endl;
+	cout << "Hits: " << cont_hits1 << endl;
+	cout << "Misses: "<< cont_misses1 << endl;
+	cout << "Miss Rate (porcentaje) :" << miss_rate1 << endl;
+
+	cout << "\nTotal de instrucciones: " << cont_total << endl;
+
+
+	cout << endl;
+	cout << "Estado final de la memoria:" << endl;
+
+	cout << "Dirección \tCPU0   CPU1   L2" << endl;
+	for (int i = 19; i >= 0; i--) {
+		cout << hex << ultimas[i] << " \t" << 
+			CPU0.getState(ultimas[i]) << "      " <<
+			CPU1.getState(ultimas[i]) << "      " <<
+			L2.getState(ultimas[i])   << endl;
+	}
+	cout << "\nFin del programa" << endl;
 	return 0;
 }
 

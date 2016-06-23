@@ -19,7 +19,7 @@ _OBJECTS = $(patsubst %.cpp, %.o, $(_SOURCES))
 OBJECTS	 = $(addprefix $(BUILD_DIR)/, $(_OBJECTS))
 
 
-TARGET = $(BIN_DIR)/Tarea1
+TARGET = $(BIN_DIR)/MESI
 
 all: $(TARGET)
 

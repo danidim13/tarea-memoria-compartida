@@ -17,6 +17,8 @@ class CacheMemory{
 		//void set_assoc(const dir_t&);
 		void set_mem_size(const dir_t&);
 		const void print();
+		char getState(const dir_t&);
+
 
 		/* La estrutura de datos para las posiciones de memoria del cache sera
 		   un arreglo de bloques, tal que el index del array es el mismo que el del set

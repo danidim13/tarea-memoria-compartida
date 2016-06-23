@@ -77,8 +77,9 @@ const void CacheMemory::print(){
 	std::cout << "Memoria cache de "
 		  << mem_size << " B, "
 		  << "mappeo directo, con bloques de "
-		  << block_size << " bytes.\n\n\t"
-		  << tag_size << " bits de tag, " << index_size << " bits de index." << std::endl
+		  << block_size << " bytes.\n\t"
+		  << tag_size << " bits de tag, " << index_size << " bits de index." << std::endl;
+	/*
 		  << "[Index]:\t Tag\t Estado" << std::endl;
 
 	std::cout << std::hex;
@@ -87,7 +88,28 @@ const void CacheMemory::print(){
 		std::cout << index << "\t " << set_vec[index].m_tag << "\t " << set_vec[index].m_state << std::endl;
 	}
 	std::cout << std::dec << std::endl;
+	*/
 
+}
+
+char CacheMemory::getState(const dir_t &addr){
+	char result;
+	Block *line;
+	dir_t tag, index;
+	decode_dir(addr, tag, index);
+	line = &set_vec[index];
+
+	if (line->m_state == INVALID)
+		result = 'I';
+	else if (line->m_state == SHARED)
+		result = 'S';
+	else if (line->m_state == MODIFIED)
+		result = 'M';
+	else if (line->m_state == EXCLUSIVE)
+		result = 'E';
+	else
+		result = '?';
+	return result;
 }
 
 void CacheMemory::decode_dir(const dir_t &addr, dir_t &tag, dir_t &index){

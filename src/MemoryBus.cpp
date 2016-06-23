@@ -43,9 +43,9 @@ int MemoryBus::read_miss(const dir_t &addr, CacheMemory *const origin){
 	// Busca en los caches del mismo nivel (snooping) por el dato;
 	for(it = higher_mem.begin(); it != higher_mem.end(); it++){
 		if(*it != origin){
-			std::cout << "Read snooping..." << std::endl;
+			//std::cout << "Read snooping..." << std::endl;
 			count += (int) ((*it)->snoop(addr));
-			if(count) std::cout << "Snooped!" << std::endl;
+			//if(count) std::cout << "Snooped!" << std::endl;
 		}
 	}
 	// Busca en el cache de nivel inferior
@@ -67,9 +67,9 @@ int MemoryBus::write_miss(const dir_t &addr, CacheMemory *const origin){
 	// Busca en los caches del mismo nivel (snooping) por el dato;
 	for(it = higher_mem.begin(); it != higher_mem.end(); it++){
 		if(*it != origin){
-			std::cout << "Write snooping..." << std::endl;
+			//std::cout << "Write snooping..." << std::endl;
 			count += (int) ((*it)->snoop(addr));
-			if(count) std::cout << "Snooped!" << std::endl;
+			//if(count) std::cout << "Snooped!" << std::endl;
 		}
 	}
 	// Busca en el cache de nivel inferior
@@ -91,9 +91,9 @@ int MemoryBus::invalidate_broadcast(const dir_t &addr, CacheMemory *const origin
 	// Invalida en los caches del mismo nivel
 	for(it = higher_mem.begin(); it != higher_mem.end(); it++){
 		if(*it != origin){
-			std::cout << "Invalidate snooping..." << std::endl;
+			//std::cout << "Invalidate snooping..." << std::endl;
 			count += (int) ((*it)->invalidate(addr));
-			if(count) std::cout << "Invalidated!" << std::endl;
+			//if(count) std::cout << "Invalidated!" << std::endl;
 		}
 	}
 	// Busca en el cache de nivel inferior
@@ -105,7 +105,9 @@ int MemoryBus::invalidate_broadcast(const dir_t &addr, CacheMemory *const origin
 
 int MemoryBus::write_back(const dir_t &addr){
 	if(lower_mem){
-		return lower_mem->write(addr);
+		int result = lower_mem->write(addr);
+		lower_mem->snoop(addr);
+		return result;
 	}
 	return -1;
 }
