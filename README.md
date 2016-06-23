@@ -1,4 +1,4 @@
-# tarea-memoria-cache
+﻿# tarea-memoria-cache
 Tarea Programada 1 para el curso
 IE0521 - Estructuras de Computadores Digitales II
 
@@ -24,4 +24,8 @@ Por ejemplo si se quisiera simular un caché de 32 KB con bloques de 8 bytes y m
 
 $ ./Tarea.out 1 32768 8
 
+Para compilar y ejecutar los programas cribasin y cribacon (obtener numeros primos) se requieren las librerias OpenMPI y mpich2. 
+Para instalar estas librerias, intente ejecutar los siguientes comandos:
 
+apt-get install libopenmpi-dev
+apt-get install mpich2
