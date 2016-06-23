@@ -1,4 +1,4 @@
-﻿# tarea-memoria-cache
+﻿# tarea-memoria-compartida
 Tarea Programada 1 para el curso
 IE0521 - Estructuras de Computadores Digitales II
 
