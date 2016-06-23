@@ -25,7 +25,13 @@ Por ejemplo si se quisiera simular un caché de 32 KB con bloques de 8 bytes y m
 $ ./Tarea.out 1 32768 8
 
 Para compilar y ejecutar los programas cribasin y cribacon (obtener numeros primos) se requieren las librerias OpenMPI y mpich2. 
-Para instalar estas librerias, intente ejecutar los siguientes comandos:
+Para instalar estas librerias, intente los siguientes comandos:
 
 apt-get install libopenmpi-dev
 apt-get install mpich2
+
+Para ejecutar el programa CRIBASIN, utilice el siguiente comando en la carpeta de ejecutables:
+./cribasin
+
+Para ejecutar el programa CRIBACON, utilice el siguiente comando en la carpeta de ejecutables:
+mpirun -np 2 ./cribacon
