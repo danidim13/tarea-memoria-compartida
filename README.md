@@ -1,5 +1,5 @@
 ﻿# tarea-memoria-compartida
-Tarea Programada 1 para el curso
+Tarea Programada 2 para el curso
 IE0521 - Estructuras de Computadores Digitales II
 
 Desarrolado por Daniel Díaz y Gabriel Jiménez
