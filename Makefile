@@ -21,7 +21,28 @@ OBJECTS	 = $(addprefix $(BUILD_DIR)/, $(_OBJECTS))
 
 TARGET = $(BIN_DIR)/MESI
 
-all: $(TARGET)
+
+all: $(TARGET) Criba
+
+run: all
+	@echo "Corriendo programas..."
+	@echo "MESI"
+	@./MESI
+	@echo
+	@echo "Criba de Eratostenes..."
+	@echo "Sin paralelismo"
+	@./cribasin
+	@echo
+	@echo "Con paralelismo"
+	@./cribacon
+
+Criba: cribacon cribasin
+
+cribasin: $(SOURCE_DIR)/cribasin.c
+	gcc -std=c99 -o $@ $^
+
+cribacon: $(SOURCE_DIR)/cribacon.c
+	mpicc.openmpi -std=c99 -o $@ $^
 
 prueba1: ./test/prueba1.cpp $(OBJECTS)
 	$(CXX) $< $(filter-out %main.o, $(OBJECTS)) -I$(INCLUDE) -o $@
@@ -36,7 +57,7 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
 	$(CXX) -o $@ -I$(INCLUDE) $(CFLAGS) $<
 	
 clean:
-	rm -f $(OBJECTS) $(TARGET) prueba1
+	rm -f $(OBJECTS) $(TARGET) prueba1 cribacon cribasin
 	
 	
 # Dependency Rules
