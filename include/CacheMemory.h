@@ -3,6 +3,8 @@
 #include "CacheSet.h"
 #include <vector>
 
+class MemoryBus;
+
 class CacheMemory{
 	public:
 		// Tipo de datos para las direcciones de memoria.
@@ -25,11 +27,24 @@ class CacheMemory{
 		*/
 		std::vector< Block > set_vec;
 		
+		/**
+		 * Operaciones sobre los datos del cache
+		 */
 		bool read(const dir_t&);
 		bool write(const dir_t&);
 		void decode_dir(const dir_t&, dir_t&, dir_t&);
 		dir_t encode_dir(const dir_t&, const dir_t&);
+		bool snoop(const dir_t&);
+		bool invalidate(const dir_t&);
+
+		/**
+		 * Operaciones sobre el bus
+		 */
+		int read_miss(const dir_t&);
+		int write_miss(const dir_t&);
 		void write_back(const dir_t&);
+		int invalidate_broadcast(const dir_t&);
+		void setBus(MemoryBus *const);
 	private:
 		dir_t block_size;
 		dir_t mem_size;
@@ -39,10 +54,10 @@ class CacheMemory{
 		int offset_size;
 		dir_t block_num;
 
-		//dir_t m_tag;
-		//dir_t m_index;
-		//dir_t m_tag_and_index;
 		dir_t my_mask;
+
+		// Bus de memoria inferior
+		MemoryBus *bus;
 
 		// Tamano de las direcciones de memoria
 		const static int DIR_SIZE = 32;

@@ -1,5 +1,6 @@
 #include "CacheMemory.h"
 #include "CacheSet.h"
+#include "MemoryBus.h"
 #include <sstream>
 #include <cmath>
 #include <iostream>
@@ -8,6 +9,7 @@ CacheMemory::CacheMemory(){
 	block_size = 0;
         //assoc = 0;
         mem_size = 0;
+	bus = 0;
 
         tag_size = 0;
         index_size = 0;
@@ -15,7 +17,7 @@ CacheMemory::CacheMemory(){
         block_num = 0;
 }
 
-CacheMemory::CacheMemory(const dir_t &v_mem_size, const dir_t &v_block_size){
+CacheMemory::CacheMemory(const dir_t &v_mem_size, const dir_t &v_block_size):bus(0){
 	//df
 	//set_assoc(v_assoc);
 	set_block_size(v_block_size);
@@ -24,6 +26,9 @@ CacheMemory::CacheMemory(const dir_t &v_mem_size, const dir_t &v_block_size){
 }
 
 CacheMemory::~CacheMemory(){
+	/*if(bus){
+		bus->del_higher(this);
+	}*/
 }
 
 void CacheMemory::initialize(){
@@ -73,7 +78,16 @@ const void CacheMemory::print(){
 		  << mem_size << " B, "
 		  << "mappeo directo, con bloques de "
 		  << block_size << " bytes.\n\n\t"
-		  << tag_size << " bits de tag, " << index_size << " bits de index." << std::endl;
+		  << tag_size << " bits de tag, " << index_size << " bits de index." << std::endl
+		  << "[Index]:\t Tag\t Estado" << std::endl;
+
+	std::cout << std::hex;
+	dir_t index;
+	for(index = 0; index < set_vec.size(); index++){
+		std::cout << index << "\t " << set_vec[index].m_tag << "\t " << set_vec[index].m_state << std::endl;
+	}
+	std::cout << std::dec << std::endl;
+
 }
 
 void CacheMemory::decode_dir(const dir_t &addr, dir_t &tag, dir_t &index){
@@ -94,12 +108,13 @@ unsigned long CacheMemory::encode_dir(const dir_t &tag, const dir_t &index){
 
 bool CacheMemory::read(const dir_t &addr){
 	Block *line;
-	dir_t tag, index;
+	dir_t tag, index, original;
 	decode_dir(addr, tag, index);
 	line = &set_vec[index];
 	
 	// Read Miss
 	if(line->m_state == INVALID){
+		read_miss(addr);
 		line->m_tag = tag;
 		line->m_state = SHARED;
 		return false;
@@ -108,10 +123,11 @@ bool CacheMemory::read(const dir_t &addr){
 		//Read Miss con substitucion
 		if(line->m_tag != tag){
 			// Write-back para datos modificados
-			if(line->m_state == MODIFIED || line->m_state == EXCLUSIVE){
-				dir_t original = encode_dir(line->m_tag, index);
+			if(line->m_state == MODIFIED){
+				original = encode_dir(line->m_tag, index);
 				write_back(original);
 			}
+			read_miss(addr);
 			line->m_tag = tag;
 			line->m_state = SHARED;
 			return false;
@@ -125,44 +141,110 @@ bool CacheMemory::read(const dir_t &addr){
 
 bool CacheMemory::write(const dir_t &addr){
 	Block *line;
-	dir_t tag, index;
+	dir_t tag, index, original;
 	decode_dir(addr, tag, index);
 	line = &set_vec[index];
 
 	// Si hay un miss
-	if(line->m_tag != tag){
-		switch(line->m_state){
-		case INVALID:
-			break;
-		case SHARED:
-			break;
-		case MODIFIED:
-			break;
-		case EXCLUSIVE:
-			break;
-		default:
+	if(line->m_tag != tag || line->m_state == INVALID){
+		if(line->m_state == MODIFIED){
+			original = encode_dir(line->m_tag, index);
+			write_back(original);
+		}
+		write_miss(addr);
+		invalidate_broadcast(addr);
+		line->m_tag = tag;
+		line->m_state = MODIFIED;
+
+		if(line->m_state > 3){
 			std::cerr << "Estado inesperado en bloque " << std::hex << index << "," << tag << std::dec << std::endl;
 		}
 		return false;
 	}
 	else{	// Si hay un hit
-		switch(line->m_state){
-		case INVALID:
-			break;
-		case SHARED:
-			break;
-		case MODIFIED:
-			break;
-		case EXCLUSIVE:
-			break;
-		default:
+		if(line->m_state != EXCLUSIVE && line->m_state != MODIFIED){
+			invalidate_broadcast(addr);
+		}
+		line->m_state = MODIFIED;
+
+		if(line->m_state > 3){
 			std::cerr << "Estado inesperado en bloque " << std::hex << index << "," << tag << std::dec << std::endl;
 		}
+
 		return true;
 	}
 
 }
 
+bool CacheMemory::snoop(const dir_t &addr){
+	Block *line;
+	dir_t tag, index;
+	decode_dir(addr, tag, index);
+	line = &set_vec[index];
+
+	if(line->m_tag != tag || line->m_state == INVALID)
+		return false;
+
+	if(line->m_state == MODIFIED){
+		write_back(addr);
+		line->m_state = SHARED;
+		return true;
+	}
+	if(line->m_state == EXCLUSIVE){
+		line->m_state = SHARED;
+		return true;
+	}
+	if(line->m_state > 3){
+		std::cerr << "Estado inesperado en bloque " << std::hex << index << "," << tag << std::dec << std::endl;
+	}
+	return false;
+}
+
+bool CacheMemory::invalidate(const dir_t &addr){
+	Block *line;
+	dir_t tag, index;
+	decode_dir(addr, tag, index);
+	line = &set_vec[index];
+
+	if(line->m_tag != tag || line->m_state == INVALID)
+		return false;
+
+	if(line->m_state == MODIFIED)
+		write_back(addr);
+
+	line->m_state = INVALID;
+	return true;
+}
+
+int CacheMemory::read_miss(const dir_t &addr){
+	if(bus)
+		return bus->read_miss(addr, this);
+
+	return -2;
+}
+
+int CacheMemory::write_miss(const dir_t &addr){
+	if(bus)
+		return bus->write_miss(addr, this);
+
+	return -2;
+}
+
 void CacheMemory::write_back(const dir_t &addr){
+	if(bus)
+		bus->write_back(addr);
+
 	return;
+}
+
+int CacheMemory::invalidate_broadcast(const dir_t &addr){
+	if(bus)
+		return bus->invalidate_broadcast(addr, this);
+	return -2;
+}
+
+
+void CacheMemory::setBus(MemoryBus *const p){
+	bus = p;
+	bus->add_higher(this);
 }
